@@ -68,6 +68,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -99,10 +100,12 @@ interface PantryItem {
 }
 
 export default function Dashboard() {
-  const [addedOn, setAddedOn] = useState<Date>();
-  const [expiresOn, setExpiresOn] = useState<Date>();
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [date, setDate] = useState(() => new Date().toLocaleDateString());
+  const [productName, setProductName] = useState<string>("");
+  const [quantity, setQuantity] = useState<Number>(0);
+  const [addedOn, setAddedOn] = useState<Date>();
+  const [expiresOn, setExpiresOn] = useState<Date>();
   const getPantry = async () => {
     const querySnapshot = await getDocs(collection(db, "pantry"));
     const allEntries = querySnapshot.docs.map((doc) => {
@@ -121,18 +124,21 @@ export default function Dashboard() {
     });
     setPantry(allEntries);
   };
+  const addProduct = async () => {
+    // Add a new document in collection "cities"
+    await setDoc(doc(db, "pantry", `${productName}`), {
+      productName: productName,
+      quantity: quantity,
+      addedOn: addedOn,
+      expiresOn: expiresOn,
+    });
+    getPantry();
+  };
+
   useEffect(() => {
     getPantry();
   }, []);
 
-  const addProduct = async () => {
-    // Add a new document in collection "cities"
-    await setDoc(doc(db, "cities", "LA"), {
-      name: "Los Angeles",
-      state: "CA",
-      country: "USA",
-    });
-  };
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
@@ -395,6 +401,11 @@ export default function Dashboard() {
                           id="product"
                           placeholder="Banana"
                           className="col-span-3"
+                          required
+                          value={productName as string}
+                          onChange={(e) => {
+                            setProductName(e.target.value);
+                          }}
                         />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
@@ -402,11 +413,15 @@ export default function Dashboard() {
                           Quantity
                         </Label>
                         <Input
-                          type="number"
+                          className="col-span-3"
                           id="quantity"
+                          type="number"
+                          required
                           defaultValue="1"
                           min="1"
-                          className="col-span-3"
+                          onChange={(e) => {
+                            setQuantity(e.target.valueAsNumber);
+                          }}
                         />
                       </div>
                       <div className="grid grid-cols-4 items-center ml-[25%]">
@@ -430,6 +445,7 @@ export default function Dashboard() {
                           <PopoverContent className="w-auto p-0">
                             <Calendar
                               mode="single"
+                              required
                               selected={addedOn}
                               onSelect={setAddedOn}
                               initialFocus
@@ -458,6 +474,7 @@ export default function Dashboard() {
                           <PopoverContent className="w-auto p-0">
                             <Calendar
                               mode="single"
+                              required
                               selected={expiresOn}
                               onSelect={setExpiresOn}
                               initialFocus
@@ -467,7 +484,11 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button type="submit">Add To Fridge</Button>
+                      <DialogClose>
+                        <Button type="submit" onClick={addProduct}>
+                          Add To Fridge
+                        </Button>
+                      </DialogClose>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>

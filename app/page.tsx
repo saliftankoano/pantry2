@@ -81,6 +81,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 //Firebase
 import {
   doc,
@@ -88,9 +99,16 @@ import {
   collection,
   getDocs,
   Timestamp,
+  deleteDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db, app } from "../firebaseConfig";
 import defaultProd from "../assets/defaultprod.webp";
+//Toast
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
 // Define an interface for the pantry item structure
 interface PantryItem {
   productName: string;
@@ -101,11 +119,77 @@ interface PantryItem {
 
 export default function Dashboard() {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
-  const [date, setDate] = useState(() => new Date().toLocaleDateString());
+  // Pantry product variables
   const [productName, setProductName] = useState<string>("");
-  const [quantity, setQuantity] = useState<Number>(0);
   const [addedOn, setAddedOn] = useState<Date>();
   const [expiresOn, setExpiresOn] = useState<Date>();
+  // Edit Dialog variables
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
+  const [quantity, setQuantity] = useState(editingItem?.quantity || 0);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (editingItem) {
+      setQuantity(editingItem.quantity || 0);
+    }
+  }, [editingItem]);
+  const editProduct = async (
+    product: string,
+    newQuantity: Number,
+    addedOn: Date,
+    expiresOn: Date
+  ) => {
+    try {
+      const docRef = doc(db, "pantry", product);
+
+      // Update the quantity field
+      await updateDoc(docRef, {
+        addedOn: addedOn,
+        expiresOn: expiresOn,
+        quantity: newQuantity,
+      });
+      getPantry();
+      console.log(`Document ${product} successfully updated!`);
+    } catch (error) {
+      console.error("Error updating document: ", error);
+    }
+  };
+  const openEdit = (item: PantryItem) => {
+    setEditingItem(item);
+    setIsEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setEditingItem(null);
+    setIsEditOpen(false);
+  };
+  // Delete Dialog variables
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingItem, setDeletingItem] = useState<PantryItem | null>(null);
+  const openDelete = (item: PantryItem) => {
+    setDeletingItem(item);
+    setIsDeleteOpen(true);
+  };
+  const closeDelete = () => {
+    setDeletingItem(null);
+    setIsDeleteOpen(false);
+  };
+  const deleteConfirmed = async (product: string) => {
+    try {
+      await deleteDoc(doc(db, "pantry", product));
+      getPantry();
+      toast({
+        title: `Product Deleted!`,
+        description: `${product} has been successfully added`,
+        action: (
+          <ToastAction altText="Goto schedule to undo">Dismiss</ToastAction>
+        ),
+      });
+    } catch (error) {
+      console.error("Error deleting document: ", error);
+    }
+  };
   const getPantry = async () => {
     const querySnapshot = await getDocs(collection(db, "pantry"));
     const allEntries = querySnapshot.docs.map((doc) => {
@@ -125,20 +209,36 @@ export default function Dashboard() {
     setPantry(allEntries);
   };
   const addProduct = async () => {
-    // Add a new document in collection "cities"
-    await setDoc(doc(db, "pantry", `${productName}`), {
-      productName: productName,
-      quantity: quantity,
-      addedOn: addedOn,
-      expiresOn: expiresOn,
-    });
-    getPantry();
+    // Add a new document in collection "pantry"
+    try {
+      await setDoc(doc(db, "pantry", `${productName}`), {
+        productName: productName,
+        quantity: quantity,
+        addedOn: addedOn,
+        expiresOn: expiresOn,
+      });
+      setQuantity(0);
+      getPantry();
+      toast({
+        title: `New Product Added!`,
+        description: `${productName} was succesfully added.`,
+        action: (
+          <ToastAction altText="Goto schedule to undo">Dismiss</ToastAction>
+        ),
+      });
+    } catch (error) {}
   };
 
   useEffect(() => {
     getPantry();
   }, []);
-
+  /* Next Steps
+   * Use the toast to notify the user when An item has been added, updated or removed
+   * Add individual update to dates: addedOn and expiresOn
+   * take pictures with mobile or web camera
+   * Use the checkboxes for the recipe functionality
+   *
+   */
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
@@ -549,7 +649,7 @@ export default function Dashboard() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell"></TableCell>
                           <TableCell>
-                            <DropdownMenu>
+                            <DropdownMenu key={index}>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   aria-haspopup="true"
@@ -557,15 +657,168 @@ export default function Dashboard() {
                                   variant="ghost"
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
+
                                   <span className="sr-only">Toggle menu</span>
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem>Edit</DropdownMenuItem>
-                                <DropdownMenuItem>Delete</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openEdit(item)}
+                                >
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDelete(item)}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
+
+                            <Dialog
+                              key={`edit-dialog-${index}`}
+                              open={isEditOpen && editingItem === item}
+                              onOpenChange={(isOpen) => {
+                                if (!isOpen) closeEdit();
+                              }}
+                            >
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Edit Product</DialogTitle>
+                                  <DialogDescription>
+                                    Modify the {item.productName} details.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                  <div className="grid grid-cols-4 items-center ml-[25%]">
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant={"outline"}
+                                          className={cn(
+                                            "w-[280px] justify-start text-left font-normal",
+                                            !addedOn && "text-muted-foreground"
+                                          )}
+                                        >
+                                          <CalendarIcon className="mr-2 h-4 w-4" />
+                                          {addedOn ? (
+                                            format(addedOn, "PPP")
+                                          ) : (
+                                            <span>Added on</span>
+                                          )}
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                          mode="single"
+                                          required
+                                          selected={addedOn}
+                                          onSelect={setAddedOn}
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+                                  <div className="grid grid-cols-4 items-center ml-[25%]">
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant={"outline"}
+                                          className={cn(
+                                            "w-[280px] justify-start text-left font-normal",
+                                            !expiresOn &&
+                                              "text-muted-foreground"
+                                          )}
+                                        >
+                                          <CalendarIcon className="mr-2 h-4 w-4" />
+                                          {expiresOn ? (
+                                            format(expiresOn, "PPP")
+                                          ) : (
+                                            <span>Expires on</span>
+                                          )}
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                          mode="single"
+                                          required
+                                          selected={expiresOn}
+                                          onSelect={setExpiresOn}
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+
+                                  <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label
+                                      htmlFor="quantity"
+                                      className="text-right"
+                                    >
+                                      Quantity
+                                    </Label>
+                                    <Input
+                                      id="quantity"
+                                      type="number"
+                                      required
+                                      value={quantity}
+                                      onChange={(e) => {
+                                        setQuantity(e.target.valueAsNumber);
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <DialogClose asChild>
+                                    <Button
+                                      onClick={() => {
+                                        editProduct(
+                                          item.productName,
+                                          quantity,
+                                          addedOn as Date,
+                                          expiresOn as Date
+                                        );
+
+                                        getPantry();
+                                        closeEdit();
+                                      }}
+                                    >
+                                      Save Changes
+                                    </Button>
+                                  </DialogClose>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                            <AlertDialog
+                              key={`delete-dialog-${index}`}
+                              open={isDeleteOpen && deletingItem === item}
+                              onOpenChange={setIsDeleteOpen}
+                            >
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Are you absolutely sure?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will
+                                    permanently delete the {item.productName}.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={closeDelete}>
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      deleteConfirmed(item.productName)
+                                    }
+                                  >
+                                    Continue
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </TableCell>
                         </TableRow>
                       ))}

@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   File,
   Home,
@@ -17,7 +17,6 @@ import {
   ShoppingCart,
   Users2,
 } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
@@ -81,27 +80,59 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+//Firebase
+import {
+  doc,
+  setDoc,
+  collection,
+  getDocs,
+  Timestamp,
+} from "firebase/firestore";
+import { db, app } from "../firebaseConfig";
+import defaultProd from "../assets/defaultprod.webp";
+// Define an interface for the pantry item structure
+interface PantryItem {
+  productName: string;
+  quantity: number;
+  addedOn: string;
+  expiresOn: string;
+}
+
 export default function Dashboard() {
   const [addedOn, setAddedOn] = useState<Date>();
   const [expiresOn, setExpiresOn] = useState<Date>();
-  const [pantry, setPantry] = useState([
-    {
-      productImage: "placeholder.svg",
-      productName: "Cauliflower",
-      quantity: 2,
-      addedOn: "May 19th 2020",
-      expiresOn: "May 30th 2020",
-    },
-    {
-      productImage: "placeholder.svg",
-      productName: "Ginger",
-      quantity: 6,
-      addedOn: "July 4th 2024",
-      expiresOn: "July 14th 2024",
-    },
-  ]);
+  const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [date, setDate] = useState(() => new Date().toLocaleDateString());
+  const getPantry = async () => {
+    const querySnapshot = await getDocs(collection(db, "pantry"));
+    const allEntries = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        addedOn:
+          data.addedOn instanceof Timestamp
+            ? data.addedOn.toDate().toLocaleDateString()
+            : data.addedOn,
+        expiresOn:
+          data.expiresOn instanceof Timestamp
+            ? data.expiresOn.toDate().toLocaleDateString()
+            : data.expiresOn,
+      } as PantryItem;
+    });
+    setPantry(allEntries);
+  };
+  useEffect(() => {
+    getPantry();
+  }, []);
 
+  const addProduct = async () => {
+    // Add a new document in collection "cities"
+    await setDoc(doc(db, "cities", "LA"), {
+      name: "Los Angeles",
+      state: "CA",
+      country: "USA",
+    });
+  };
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
@@ -479,7 +510,7 @@ export default function Dashboard() {
                               alt="Product image"
                               className="aspect-square rounded-md object-cover"
                               height="64"
-                              src="/placeholder.svg"
+                              src={defaultProd}
                               width="64"
                             />
                           </TableCell>

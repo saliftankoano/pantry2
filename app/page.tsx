@@ -60,6 +60,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+
 import {
   Dialog,
   DialogContent,
@@ -90,7 +92,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 //Firebase
 import {
@@ -105,10 +106,11 @@ import {
 import { db, app } from "../firebaseConfig";
 import defaultProd from "../assets/defaultprod.webp";
 //Toast
-import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-
+import ReactiveButton from "reactive-button";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheck } from "@fortawesome/free-solid-svg-icons";
 // Define an interface for the pantry item structure
 interface PantryItem {
   productName: string;
@@ -116,9 +118,27 @@ interface PantryItem {
   addedOn: string;
   expiresOn: string;
 }
+// Define the type for a single recipe
+type Recipe = {
+  id: number;
+  title: string;
+  image: string;
+  missedIngredients: Array<{
+    id: number;
+    name: string;
+    amount: number;
+    unit: string;
+    original: string;
+  }>;
+};
+//Radix UI
+
+const spooncularKey = process.env.NEXT_PUBLIC_SPOOCULAR_KEY;
 
 export default function Dashboard() {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
+  const [buttonState, setButtonState] = useState("idle");
+  const [showRecipes, setShowRecipes] = useState(false);
   // Pantry product variables
   const [productName, setProductName] = useState<string>("");
   const [addedOn, setAddedOn] = useState<Date>();
@@ -127,8 +147,48 @@ export default function Dashboard() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [quantity, setQuantity] = useState(editingItem?.quantity || 0);
-  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const productNames: string[] = [];
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
+  const { toast } = useToast();
+  const generateRecipes = async () => {
+    try {
+      setButtonState("loading");
+      // Simulate a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const querySnapshot = await getDocs(collection(db, "pantry"));
+      const allProducts = querySnapshot.docs;
+
+      allProducts.forEach((product) => {
+        productNames.push(product.data().productName);
+      });
+      const ingredients = productNames.join(",");
+
+      const getRecipes = async () => {
+        try {
+          //Minimize missing ingredients
+          const response = await fetch(
+            `https://api.spoonacular.com/recipes/findByIngredients?ranking=2&ingredients=${ingredients}&number=9&apiKey=${spooncularKey}`
+          );
+          const responseData = await response.json();
+          console.log(responseData);
+          setRecipes(responseData);
+        } catch (error) {
+          console.log(error);
+        }
+      };
+
+      getRecipes();
+
+      setShowRecipes(true);
+      setButtonState("success");
+      setTimeout(() => setButtonState("idle"), 3000);
+    } catch (error) {
+      setButtonState("error");
+      setTimeout(() => setButtonState("idle"), 3000);
+    }
+  };
   useEffect(() => {
     if (editingItem) {
       setQuantity(editingItem.quantity || 0);
@@ -149,7 +209,7 @@ export default function Dashboard() {
         expiresOn: expiresOn,
         quantity: newQuantity,
       });
-      getPantry();
+      updatePantry();
       console.log(`Document ${product} successfully updated!`);
     } catch (error) {
       console.error("Error updating document: ", error);
@@ -178,7 +238,7 @@ export default function Dashboard() {
   const deleteConfirmed = async (product: string) => {
     try {
       await deleteDoc(doc(db, "pantry", product));
-      getPantry();
+      updatePantry();
       toast({
         title: `Product Deleted!`,
         description: `${product} has been successfully added`,
@@ -190,7 +250,7 @@ export default function Dashboard() {
       console.error("Error deleting document: ", error);
     }
   };
-  const getPantry = async () => {
+  const updatePantry = async () => {
     const querySnapshot = await getDocs(collection(db, "pantry"));
     const allEntries = querySnapshot.docs.map((doc) => {
       const data = doc.data();
@@ -218,7 +278,7 @@ export default function Dashboard() {
         expiresOn: expiresOn,
       });
       setQuantity(0);
-      getPantry();
+      updatePantry();
       toast({
         title: `New Product Added!`,
         description: `${productName} was succesfully added.`,
@@ -230,14 +290,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    getPantry();
+    updatePantry();
   }, []);
   /* Next Steps
-   * Use the toast to notify the user when An item has been added, updated or removed
-   * Add individual update to dates: addedOn and expiresOn
-   * take pictures with mobile or web camera
-   * Use the checkboxes for the recipe functionality
-   *
+   * Take pictures with mobile or web camera
+   * Classify images using OpenAi vision API and update firebase
    */
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -407,6 +464,9 @@ export default function Dashboard() {
               type="search"
               placeholder="Search..."
               className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
+              onChange={(e) => {
+                setSearch(e.target.value);
+              }}
             />
           </div>
           <DropdownMenu>
@@ -440,11 +500,7 @@ export default function Dashboard() {
             <div className="flex items-center">
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="draft">Draft</TabsTrigger>
-                <TabsTrigger value="archived" className="hidden sm:flex">
-                  Archived
-                </TabsTrigger>
+                <TabsTrigger value="recipes">Recipes</TabsTrigger>
               </TabsList>
               <div className="ml-auto flex items-center gap-2">
                 <DropdownMenu>
@@ -624,204 +680,211 @@ export default function Dashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pantry.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="hidden sm:table-cell">
-                            <Image
-                              alt="Product image"
-                              className="aspect-square rounded-md object-cover"
-                              height="64"
-                              src={defaultProd}
-                              width="64"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {item.productName}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{item.quantity}</Badge>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {item.addedOn}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {item.expiresOn}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell"></TableCell>
-                          <TableCell>
-                            <DropdownMenu key={index}>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  aria-haspopup="true"
-                                  size="icon"
-                                  variant="ghost"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-
-                                  <span className="sr-only">Toggle menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => openEdit(item)}
-                                >
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => openDelete(item)}
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Dialog
-                              key={`edit-dialog-${index}`}
-                              open={isEditOpen && editingItem === item}
-                              onOpenChange={(isOpen) => {
-                                if (!isOpen) closeEdit();
-                              }}
-                            >
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Edit Product</DialogTitle>
-                                  <DialogDescription>
-                                    Modify the {item.productName} details.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center ml-[25%]">
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant={"outline"}
-                                          className={cn(
-                                            "w-[280px] justify-start text-left font-normal",
-                                            !addedOn && "text-muted-foreground"
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-2 h-4 w-4" />
-                                          {addedOn ? (
-                                            format(addedOn, "PPP")
-                                          ) : (
-                                            <span>Added on</span>
-                                          )}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                          mode="single"
-                                          required
-                                          selected={addedOn}
-                                          onSelect={setAddedOn}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center ml-[25%]">
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant={"outline"}
-                                          className={cn(
-                                            "w-[280px] justify-start text-left font-normal",
-                                            !expiresOn &&
-                                              "text-muted-foreground"
-                                          )}
-                                        >
-                                          <CalendarIcon className="mr-2 h-4 w-4" />
-                                          {expiresOn ? (
-                                            format(expiresOn, "PPP")
-                                          ) : (
-                                            <span>Expires on</span>
-                                          )}
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                          mode="single"
-                                          required
-                                          selected={expiresOn}
-                                          onSelect={setExpiresOn}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label
-                                      htmlFor="quantity"
-                                      className="text-right"
-                                    >
-                                      Quantity
-                                    </Label>
-                                    <Input
-                                      id="quantity"
-                                      type="number"
-                                      required
-                                      value={quantity}
-                                      onChange={(e) => {
-                                        setQuantity(e.target.valueAsNumber);
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <DialogClose asChild>
-                                    <Button
-                                      onClick={() => {
-                                        editProduct(
-                                          item.productName,
-                                          quantity,
-                                          addedOn as Date,
-                                          expiresOn as Date
-                                        );
-
-                                        getPantry();
-                                        closeEdit();
-                                      }}
-                                    >
-                                      Save Changes
-                                    </Button>
-                                  </DialogClose>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                            <AlertDialog
-                              key={`delete-dialog-${index}`}
-                              open={isDeleteOpen && deletingItem === item}
-                              onOpenChange={setIsDeleteOpen}
-                            >
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Are you absolutely sure?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This action cannot be undone. This will
-                                    permanently delete the {item.productName}.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel onClick={closeDelete}>
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      deleteConfirmed(item.productName)
-                                    }
+                      {pantry
+                        .filter((item) => {
+                          return search.toLowerCase() === ""
+                            ? item
+                            : item.productName.toLowerCase().includes(search);
+                        })
+                        .map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="hidden sm:table-cell">
+                              <Image
+                                alt="Product image"
+                                className="aspect-square rounded-md object-cover"
+                                height="64"
+                                src={defaultProd}
+                                width="64"
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {item.productName}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{item.quantity}</Badge>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {item.addedOn}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {item.expiresOn}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell"></TableCell>
+                            <TableCell>
+                              <DropdownMenu key={index}>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    aria-haspopup="true"
+                                    size="icon"
+                                    variant="ghost"
                                   >
-                                    Continue
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                    <MoreHorizontal className="h-4 w-4" />
+
+                                    <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => openEdit(item)}
+                                  >
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => openDelete(item)}
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
+                              <Dialog
+                                key={`edit-dialog-${index}`}
+                                open={isEditOpen && editingItem === item}
+                                onOpenChange={(isOpen) => {
+                                  if (!isOpen) closeEdit();
+                                }}
+                              >
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Edit Product</DialogTitle>
+                                    <DialogDescription>
+                                      Modify the {item.productName} details.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-4 items-center ml-[25%]">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                              "w-[280px] justify-start text-left font-normal",
+                                              !addedOn &&
+                                                "text-muted-foreground"
+                                            )}
+                                          >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {addedOn ? (
+                                              format(addedOn, "PPP")
+                                            ) : (
+                                              <span>Added on</span>
+                                            )}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                          <Calendar
+                                            mode="single"
+                                            required
+                                            selected={addedOn}
+                                            onSelect={setAddedOn}
+                                            initialFocus
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center ml-[25%]">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                              "w-[280px] justify-start text-left font-normal",
+                                              !expiresOn &&
+                                                "text-muted-foreground"
+                                            )}
+                                          >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {expiresOn ? (
+                                              format(expiresOn, "PPP")
+                                            ) : (
+                                              <span>Expires on</span>
+                                            )}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                          <Calendar
+                                            mode="single"
+                                            required
+                                            selected={expiresOn}
+                                            onSelect={setExpiresOn}
+                                            initialFocus
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label
+                                        htmlFor="quantity"
+                                        className="text-right"
+                                      >
+                                        Quantity
+                                      </Label>
+                                      <Input
+                                        id="quantity"
+                                        type="number"
+                                        required
+                                        value={quantity}
+                                        onChange={(e) => {
+                                          setQuantity(e.target.valueAsNumber);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <DialogClose asChild>
+                                      <Button
+                                        onClick={() => {
+                                          editProduct(
+                                            item.productName,
+                                            quantity,
+                                            addedOn as Date,
+                                            expiresOn as Date
+                                          );
+
+                                          updatePantry();
+                                          closeEdit();
+                                        }}
+                                      >
+                                        Save Changes
+                                      </Button>
+                                    </DialogClose>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                              <AlertDialog
+                                key={`delete-dialog-${index}`}
+                                open={isDeleteOpen && deletingItem === item}
+                                onOpenChange={setIsDeleteOpen}
+                              >
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Are you absolutely sure?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will
+                                      permanently delete the {item.productName}.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={closeDelete}>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        deleteConfirmed(item.productName)
+                                      }
+                                    >
+                                      Continue
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -831,6 +894,72 @@ export default function Dashboard() {
                     products
                   </div>
                 </CardFooter>
+              </Card>
+            </TabsContent>
+            <TabsContent value="recipes">
+              <Card x-chunk="recipes-card">
+                <CardHeader>
+                  <CardTitle>Recipes</CardTitle>
+                  <CardDescription>
+                    Find a delicious recipe today!
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ReactiveButton
+                    buttonState={buttonState}
+                    onClick={generateRecipes}
+                    animation={true}
+                    color="violet"
+                    size="large"
+                    idleText="Find Recipes"
+                    loadingText="Generating...🤤"
+                    successText={
+                      <>
+                        <FontAwesomeIcon icon={faCheck} /> Success
+                      </>
+                    }
+                    errorText="Oops 🫤"
+                    disabled={false}
+                  />
+                  {recipes.length > 0 && showRecipes && (
+                    <div className="flex flex-wrap justify-evenly">
+                      {recipes.map((recipe) => (
+                        <div
+                          key={recipe.id}
+                          className="mt-8 p-2 border-gray-300 border-[1px] sm:w-full md:w-full lg:w-[30%]"
+                        >
+                          <img
+                            src={recipe.image}
+                            alt={recipe.title}
+                            style={{
+                              display: "block",
+                              objectFit: "cover",
+                              width: "100%",
+                              maxHeight: 200,
+                              backgroundColor: "var(--gray-5)",
+                            }}
+                          />
+                          <div className="text-lg font-[600] pt-2">
+                            {recipe.title}
+                          </div>
+                          <Separator className="my-2 bg-black" />
+                          <div className="text-md p-2">Missing ingredients</div>
+                          <div className="flex flex-wrap missing-ingredients">
+                            {recipe.missedIngredients.map((ingredient) => (
+                              <Badge
+                                className="p-2"
+                                variant="outline"
+                                key={ingredient.id}
+                              >
+                                {ingredient.original}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
               </Card>
             </TabsContent>
           </Tabs>

@@ -18,8 +18,8 @@ export default function Layout({
   return (
     <>
       <Meta {...meta} />
-      <div className="fixed top-0 w-full z-10 transition-all">
-        <div className="flex h-16 w-full items-center justify-between xl:mx-auto">
+      <div className="fixed top-0 xl:w-full md:w-full sm:w-full z-10 transition-all">
+        <div className="flex h-16 xl:w-screen md:w-screen sm:w-screen w-screen xl:justify-between md:justify-between sm:justify-between justify-between items-center  xl:mx-auto md:mx-auto sm:mx-auto">
           <Link href="/" className="flex items-center space-x-3 ml-4 ">
             <Image src={senseiName} alt="seisei name" width="128" height="65" />
           </Link>
@@ -35,7 +35,7 @@ export default function Layout({
           </Link>
         </div>
       </div>
-      <main className="w-full bg-[url('https://ik.imagekit.io/engineerbf24/sensei/kiwi-left%20(1).png?updatedAt=1722906367419')] scale bg-cover bg-[top_20%] bg-no-repeat min-h-screen flex flex-col items-center justify-center">
+      <main className="w-full bg-[url('https://ik.imagekit.io/engineerbf24/sensei/kiwi-left%20(1).png?updatedAt=1722906367419')] scale bg-cover bg-[top_0%_left_30%] bg-no-repeat min-h-screen flex flex-col items-center justify-center">
         {children}
       </main>
     </>

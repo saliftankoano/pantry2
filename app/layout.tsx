@@ -15,11 +15,13 @@ const defaultMetadata: Metadata = {
 
 interface RootLayoutProps {
   pageProps?: any;
+  children: React.ReactNode; // Ensure children are explicitly typed
 }
+
 export default function RootLayout({
   children,
   pageProps = {},
-}: React.PropsWithChildren<RootLayoutProps>) {
+}: RootLayoutProps) {
   // If pageProps.metadata is defined, use it to override the default metadata
   const pageMetadata = pageProps?.metadata || defaultMetadata;
 
@@ -31,7 +33,7 @@ export default function RootLayout({
         <link
           rel="icon"
           type="image/x-icon"
-          href="https://ik.imagekit.io/engineerbf24/sensei/sensei.png?updatedAt=1722869311627"
+          href="https://ik.imagekit.io/engineerbf24/sensei/1.png?updatedAt=1722908226867"
         />
       </head>
       <body className={inter.className}>

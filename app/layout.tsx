@@ -5,6 +5,7 @@ import "../styles/fonts.css"; // Adjust the path if necessary
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@radix-ui/themes/styles.css";
 import logo from "../assets/sensei.png";
+
 const inter = Inter({ subsets: ["latin"] });
 
 const defaultMetadata: Metadata = {
@@ -14,22 +15,22 @@ const defaultMetadata: Metadata = {
 };
 
 interface RootLayoutProps {
-  pageProps?: any;
-  children: React.ReactNode; // Ensure children are explicitly typed
+  children: React.ReactNode;
 }
 
-export default function RootLayout({
-  children,
-  pageProps = {},
-}: RootLayoutProps) {
-  // If pageProps.metadata is defined, use it to override the default metadata
-  const pageMetadata = pageProps?.metadata || defaultMetadata;
+export default function RootLayout({ children }: RootLayoutProps) {
+  // Ensure title is a string
+  const pageMetadata = defaultMetadata;
 
   return (
     <html lang="en">
       <head>
-        <title>{pageMetadata.title}</title>
-        <meta name="description" content={pageMetadata.description} />
+        <title>{String(pageMetadata.title)}</title>{" "}
+        {/* Ensure title is a string */}
+        <meta
+          name="description"
+          content={pageMetadata.description ?? "Default description"}
+        />
         <link
           rel="icon"
           type="image/x-icon"

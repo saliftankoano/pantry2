@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 import { getAuth } from "firebase/auth";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_API_KEY,
@@ -21,6 +21,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const analytics = getAnalytics(app);
-
-export { app, db, auth };
+// Initialize Firebase Analytics only if supported
+let analytics;
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      analytics = getAnalytics(app);
+      console.log("Firebase Analytics initialized");
+    } else {
+      console.log("Firebase Analytics is not supported in this environment");
+    }
+  });
+}
+export { app, db, auth, analytics };

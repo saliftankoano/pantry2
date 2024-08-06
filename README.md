@@ -1,5 +1,13 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## BRAG SHEET
+
+# Wrote a function to transform Base64 photo data from camera feed transfered to firebase storage
+
+# Setup user authentification with email and password
+
+# Consume third party API's and manipulate JSON Data
+
 ## Getting Started
 
 First, run the development server:

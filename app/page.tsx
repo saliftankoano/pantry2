@@ -11,8 +11,8 @@ export default function LandingPage() {
   return (
     <>
       <Head>
-        <title>Fridge Sensei</title>
-        <meta name="description" content="Fridge sensei" />
+        <title>Food Sensei</title>
+        <meta name="description" content="Food sensei" />
       </Head>
 
       <Layout>

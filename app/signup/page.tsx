@@ -53,8 +53,8 @@ export default function SignUpPage() {
   return (
     <>
       <Head>
-        <title>Sign up for Fridge Sensei</title>
-        <meta name="description" content="Fridge sensei" />
+        <title>Sign up for Food Sensei</title>
+        <meta name="description" content="Food sensei" />
       </Head>
       <div className="w-full lg:grid lg:min-h-[600px] lg:grid-cols-2 xl:min-h-[800px]">
         <div className="flex items-center justify-center mt-[-10%]">

@@ -20,7 +20,7 @@ export default function Layout({
       <Meta {...meta} />
       <div className="fixed top-0 w-full z-10 transition-all">
         <div className="flex h-16 w-full items-center justify-between xl:mx-auto">
-          <Link href="/" className="flex items-center space-x-3 ml-4 mt-2">
+          <Link href="/" className="flex items-center space-x-3 ml-4 ">
             <Image src={senseiName} alt="seisei name" width="128" height="65" />
           </Link>
           <Link

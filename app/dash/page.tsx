@@ -453,8 +453,8 @@ export default function DashboardPage() {
   return user ? (
     <>
       <Head>
-        <title>Fridge Sensei</title>
-        <meta name="description" content="Fridge sensei" />
+        <title>Food Sensei</title>
+        <meta name="description" content="Food sensei" />
       </Head>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
         <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">

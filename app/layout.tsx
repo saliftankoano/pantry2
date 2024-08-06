@@ -4,9 +4,14 @@ import "./globals.css";
 import "../styles/fonts.css"; // Adjust the path if necessary
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@radix-ui/themes/styles.css";
-import logo from "../assets/sensei.png";
 
 const inter = Inter({ subsets: ["latin"] });
+import Hotjar from "@hotjar/browser";
+
+const siteId = 5085010;
+const hotjarVersion = 6;
+
+Hotjar.init(siteId, hotjarVersion);
 
 const defaultMetadata: Metadata = {
   title: "Food Sensei",
